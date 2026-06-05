@@ -18,8 +18,28 @@
         <h2>Bluetooth デバイス管理</h2>
         
         <div class="form-group">
-          <label for="deviceId">デバイス ID:</label>
+          <button id="scanBtn" class="btn btn-primary">bluetoothデバイスをスキャン</button>
+        </div>
+
+        <div class="form-group">
+          <label for="deviceId">接続するデバイス ID:</label>
           <input type="text" id="deviceId" placeholder="e.g., 00:1A:2B:3C:4D:5E">
+        </div>
+
+        <div class="form-group">
+          <label for="savedDevices">保存済みデバイスから選択:</label>
+          <select id="savedDevices" class="select-input">
+            <option value="">-- 保存済みデバイスを選択 --</option>
+          </select>
+          <button id="connectSavedBtn" class="btn btn-secondary">選択デバイスに接続</button>
+        </div>
+
+        <div class="form-group">
+          <label>使用するコマンドを選ぶ:</label>
+          <select id="commandSelect" class="select-input">
+            <option value="blew">blew</option>
+            <option value="blueutil">blueutil</option>
+          </select>
         </div>
 
         <div class="form-group">
@@ -27,21 +47,18 @@
         </div>
 
         <div class="form-group">
-          <label for="savedDevices">保存済みデバイス:</label>
-          <select id="savedDevices" class="select-input">
-            <option value="">-- デバイスを選択 --</option>
-          </select>
-          <button id="connectSavedBtn" class="btn btn-secondary">選択デバイスに接続</button>
+          <label>実行結果:</label>
+          <div id="output" class="output">ボタンを押すとここに結果が表示されます</div>
         </div>
-
-        <div id="output" class="output"></div>
       </section>
     </main>
   </div>
 
   <script>
+    const scanBtn = document.getElementById('scanBtn');
     const deviceIdInput = document.getElementById('deviceId');
     const launchBtn = document.getElementById('launchBtn');
+    const commandSelect = document.getElementById('commandSelect');
     const savedDevicesSelect = document.getElementById('savedDevices');
     const connectSavedBtn = document.getElementById('connectSavedBtn');
     const output = document.getElementById('output');
@@ -50,7 +67,7 @@
     async function loadSavedDevices() {
       try {
         const devices = await window.api.getSavedDevices();
-        savedDevicesSelect.innerHTML = '<option value="">-- デバイスを選択 --</option>';
+        savedDevicesSelect.innerHTML = '<option value="">-- 保存済みデバイスを選択 --</option>';
         devices.forEach(device => {
           const option = document.createElement('option');
           option.value = device;
@@ -62,18 +79,27 @@
       }
     }
 
+    // スキャンボタン
+    scanBtn.addEventListener('click', () => {
+      output.textContent = 'Bluetooth デバイスをスキャン中...';
+    });
+
     // 保存済みデバイスから接続
     connectSavedBtn.addEventListener('click', async () => {
       const deviceId = savedDevicesSelect.value;
       if (deviceId) {
         deviceIdInput.value = deviceId;
         launchBtn.click();
+      } else {
+        output.textContent = 'デバイスを選択してください';
       }
     });
 
     // 接続ボタン
     launchBtn.addEventListener('click', async () => {
       const deviceId = deviceIdInput.value.trim();
+      const command = commandSelect.value;
+
       if (!deviceId) {
         output.textContent = 'デバイス ID を入力してください';
         return;
@@ -81,9 +107,9 @@
 
       output.textContent = '接続中...';
       try {
-        const command = `blew -c "${deviceId}"`;
-        const result = await window.api.runCommand(command);
-        output.textContent = `接続成功: ${result}`;
+        const commandStr = `${command} -c "${deviceId}"`;
+        const result = await window.api.runCommand(commandStr);
+        output.textContent = `接続成功:\n${result}`;
         
         // デバイスを保存
         await window.api.saveDevice(deviceId);
