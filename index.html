@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BluetoothFixer</title>
+  <link rel="stylesheet" href="destyle.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>BluetoothFixer</h1>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Bluetooth デバイス管理</h2>
+        
+        <div class="form-group">
+          <label for="deviceId">デバイス ID:</label>
+          <input type="text" id="deviceId" placeholder="e.g., 00:1A:2B:3C:4D:5E">
+        </div>
+
+        <div class="form-group">
+          <button id="launchBtn" class="btn btn-primary">接続</button>
+        </div>
+
+        <div class="form-group">
+          <label for="savedDevices">保存済みデバイス:</label>
+          <select id="savedDevices" class="select-input">
+            <option value="">-- デバイスを選択 --</option>
+          </select>
+          <button id="connectSavedBtn" class="btn btn-secondary">選択デバイスに接続</button>
+        </div>
+
+        <div id="output" class="output"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const deviceIdInput = document.getElementById('deviceId');
+    const launchBtn = document.getElementById('launchBtn');
+    const savedDevicesSelect = document.getElementById('savedDevices');
+    const connectSavedBtn = document.getElementById('connectSavedBtn');
+    const output = document.getElementById('output');
+
+    // 保存済みデバイスを読み込み
+    async function loadSavedDevices() {
+      try {
+        const devices = await window.api.getSavedDevices();
+        savedDevicesSelect.innerHTML = '<option value="">-- デバイスを選択 --</option>';
+        devices.forEach(device => {
+          const option = document.createElement('option');
+          option.value = device;
+          option.textContent = device;
+          savedDevicesSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load saved devices:', error);
+      }
+    }
+
+    // 保存済みデバイスから接続
+    connectSavedBtn.addEventListener('click', async () => {
+      const deviceId = savedDevicesSelect.value;
+      if (deviceId) {
+        deviceIdInput.value = deviceId;
+        launchBtn.click();
+      }
+    });
+
+    // 接続ボタン
+    launchBtn.addEventListener('click', async () => {
+      const deviceId = deviceIdInput.value.trim();
+      if (!deviceId) {
+        output.textContent = 'デバイス ID を入力してください';
+        return;
+      }
+
+      output.textContent = '接続中...';
+      try {
+        const command = `blew -c "${deviceId}"`;
+        const result = await window.api.runCommand(command);
+        output.textContent = `接続成功: ${result}`;
+        
+        // デバイスを保存
+        await window.api.saveDevice(deviceId);
+        
+        // 保存済みデバイスを再読み込み
+        loadSavedDevices();
+      } catch (error) {
+        output.textContent = `エラー: ${error.message}`;
+      }
+    });
+
+    // メニューからのデバイス接続
+    window.api.onConnectToDevice((deviceId) => {
+      deviceIdInput.value = deviceId;
+      launchBtn.click();
+    });
+
+    // 更新通知
+    window.api.onUpdateAvailable(() => {
+      if (confirm('新しいバージョンが利用可能です。ダウンロードしますか？')) {
+        output.textContent = '更新をダウンロード中...';
+      }
+    });
+
+    window.api.onUpdateDownloaded(() => {
+      if (confirm('更新の準備が完了しました。再起動してインストールしますか？')) {
+        window.close();
+      }
+    });
+
+    // ページロード時に保存済みデバイスを読み込み
+    loadSavedDevices();
+  </script>
+</body>
+</html>
