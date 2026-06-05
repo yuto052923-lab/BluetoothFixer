@@ -1,0 +1,44 @@
+{
+  "name": "bluetoothfixer",
+  "version": "1.0.0",
+  "description": "BluetoothFixer is a macOS utility for managing Bluetooth devices with blew and blueutil.",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.example.myapp",
+    "productName": "BluetoothFixer",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "yuto052923-lab",
+        "repo": "BluetoothFixer"
+      }
+    ],
+    "mac": {
+      "target": ["zip"],
+      "identity": null,
+      "icon": "icon.icns"
+    },
+    "extraResources": [
+      {
+        "from": "bin/",
+        "to": "bin/",
+        "filter": ["**/*"]
+      }
+    ]
+  },
+  "keywords": [],
+  "author": "yuto",
+  "license": "ISC",
+  "dependencies": {
+    "electron-updater": "^4.6.5"
+  },
+  "devDependencies": {
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1"
+  }
+}

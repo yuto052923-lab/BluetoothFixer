@@ -78,7 +78,18 @@ app.on('activate', () => {
 // IPC: コマンド実行
 ipcMain.handle('run-command', async (event, command) => {
   return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
+    // アプリ内の bin/ ディレクトリのパスを取得
+    const resourcesPath = process.resourcesPath || app.getAppPath();
+    const binPath = path.join(resourcesPath, 'bin');
+    
+    // blew と blueutil のコマンドパスを完全パスに置き換える
+    let commandWithPath = command
+      .replace(/^blew\b/, `"${path.join(binPath, 'blew')}"`)
+      .replace(/^blueutil\b/, `"${path.join(binPath, 'blueutil')}"`)
+      .replace(/\sblew\s/, ` "${path.join(binPath, 'blew')}" `)
+      .replace(/\sblueutil\s/, ` "${path.join(binPath, 'blueutil')}" `);
+    
+    exec(commandWithPath, (error, stdout, stderr) => {
       if (error) {
         reject(error);
       } else {
