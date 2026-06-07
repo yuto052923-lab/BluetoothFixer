@@ -16,22 +16,11 @@
     <main>
       <section class="card">
         <h2>Bluetooth デバイス管理</h2>
-        
-        <div class="form-group">
-          <button id="scanBtn" class="btn btn-primary">bluetoothデバイスをスキャン</button>
-        </div>
 
-        <div class="form-group">
-          <label for="deviceId">接続するデバイス ID:</label>
-          <input type="text" id="deviceId" placeholder="e.g., 00:1A:2B:3C:4D:5E">
-        </div>
-
-        <div class="form-group">
-          <label for="savedDevices">保存済みデバイスから選択:</label>
-          <select id="savedDevices" class="select-input">
-            <option value="">-- 保存済みデバイスを選択 --</option>
-          </select>
-          <button id="connectSavedBtn" class="btn btn-secondary">選択デバイスに接続</button>
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="scan">スキャン</button>
+          <button class="tab-btn" data-tab="connect">接続</button>
+          <button class="tab-btn" data-tab="saved">昔のと接続</button>
         </div>
 
         <div class="form-group">
@@ -42,11 +31,36 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <button id="launchBtn" class="btn btn-primary">接続</button>
+        <div class="tab-content active" id="tab-scan">
+          <div class="form-group">
+            <button id="scanBtn" class="btn btn-primary">デバイスをスキャン</button>
+          </div>
+          <p class="hint-text">blew は <code>blew scan</code>、blueutil は <code>blueutil --inquiry</code> を実行します。</p>
         </div>
 
-        <div class="form-group">
+        <div class="tab-content" id="tab-connect">
+          <div class="form-group">
+            <label for="deviceId">接続するデバイス ID:</label>
+            <input type="text" id="deviceId" placeholder="例: 00:1A:2B:3C:4D:5E">
+          </div>
+          <div class="form-group">
+            <button id="launchBtn" class="btn btn-primary">接続</button>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-saved">
+          <div class="form-group">
+            <label for="savedDevices">保存済みデバイスから選択:</label>
+            <select id="savedDevices" class="select-input">
+              <option value="">-- 保存済みデバイスを選択 --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="connectSavedBtn" class="btn btn-secondary">選択デバイスに接続</button>
+          </div>
+        </div>
+
+        <div class="form-group output-block">
           <label>実行結果:</label>
           <div id="output" class="output">ボタンを押すとここに結果が表示されます</div>
         </div>
@@ -62,13 +76,27 @@
     const savedDevicesSelect = document.getElementById('savedDevices');
     const connectSavedBtn = document.getElementById('connectSavedBtn');
     const output = document.getElementById('output');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-    // 保存済みデバイスを読み込み
+    function showTab(tabName) {
+      tabButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+      tabContents.forEach(content => {
+        content.classList.toggle('active', content.id === `tab-${tabName}`);
+      });
+    }
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => showTab(button.dataset.tab));
+    });
+
     async function loadSavedDevices() {
       try {
         const devices = await window.api.getSavedDevices();
         savedDevicesSelect.innerHTML = '<option value="">-- 保存済みデバイスを選択 --</option>';
-        devices.forEach(device => {
+        (Array.isArray(devices) ? devices : []).forEach(device => {
           const option = document.createElement('option');
           option.value = device;
           option.textContent = device;
@@ -79,12 +107,19 @@
       }
     }
 
-    // スキャンボタン
-    scanBtn.addEventListener('click', () => {
+    scanBtn.addEventListener('click', async () => {
       output.textContent = 'Bluetooth デバイスをスキャン中...';
+      try {
+        const command = commandSelect.value === 'blew'
+          ? 'blew scan'
+          : 'blueutil --inquiry';
+        const result = await window.api.runCommand(command);
+        output.textContent = `スキャン結果:\n${result}`;
+      } catch (error) {
+        output.textContent = `スキャンエラー: ${error.message}`;
+      }
     });
 
-    // 保存済みデバイスから接続
     connectSavedBtn.addEventListener('click', async () => {
       const deviceId = savedDevicesSelect.value;
       if (deviceId) {
@@ -95,7 +130,6 @@
       }
     });
 
-    // 接続ボタン
     launchBtn.addEventListener('click', async () => {
       const deviceId = deviceIdInput.value.trim();
       const command = commandSelect.value;
@@ -107,27 +141,23 @@
 
       output.textContent = '接続中...';
       try {
-        const commandStr = `${command} -c "${deviceId}"`;
+        const commandStr = command === 'blew'
+          ? `blew connect "${deviceId}"`
+          : `blueutil --pair "${deviceId}"`;
         const result = await window.api.runCommand(commandStr);
         output.textContent = `接続成功:\n${result}`;
-        
-        // デバイスを保存
         await window.api.saveDevice(deviceId);
-        
-        // 保存済みデバイスを再読み込み
         loadSavedDevices();
       } catch (error) {
         output.textContent = `エラー: ${error.message}`;
       }
     });
 
-    // メニューからのデバイス接続
     window.api.onConnectToDevice((deviceId) => {
       deviceIdInput.value = deviceId;
       launchBtn.click();
     });
 
-    // 更新通知
     window.api.onUpdateAvailable(() => {
       if (confirm('新しいバージョンが利用可能です。ダウンロードしますか？')) {
         output.textContent = '更新をダウンロード中...';
@@ -140,7 +170,6 @@
       }
     });
 
-    // ページロード時に保存済みデバイスを読み込み
     loadSavedDevices();
   </script>
 </body>
